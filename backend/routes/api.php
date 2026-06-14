@@ -1,5 +1,10 @@
 <?php
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AdminController;
 
-Route::post('/login', [AuthController::class, 'login']);
+Route::middleware('auth:api')->prefix('admin')->group(function () {
+    Route::get('/dashboard', [AdminController::class, 'dashboard']);
+    Route::get('/products', [AdminController::class, 'products']);
+    Route::get('/orders', [AdminController::class, 'orders']);
+    Route::get('/users', [AdminController::class, 'users']);
+});
