@@ -3,23 +3,20 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        // Tạo tài khoản Admin WibuCart
+        User::create([
+            'name' => 'Admin Vũ Trí Dũng',
+            'email' => 'admin@wibucart.com',
+            'password' => Hash::make('123456'), // Hash password để bảo mật
+            // Nếu trong CSDL bạn đã thêm cột 'role' hay 'rank_id', bạn thêm vào đây:
+            // 'role' => 'admin',
         ]);
     }
 }
