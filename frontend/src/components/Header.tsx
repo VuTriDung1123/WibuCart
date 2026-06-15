@@ -10,17 +10,26 @@ export default function Header() {
   const router = useRouter();
 
   useEffect(() => {
-    const storedName = localStorage.getItem('user_name');
-
-    if (storedName !== userName) {
+    // 1. Tìm đúng cái hộp 'user_data' mà LoginPage đã lưu
+    const userDataStr = localStorage.getItem('user_data');
     
-      setUserName(storedName);
+    // 2. Mở hộp ra và lấy cái tên
+    if (userDataStr) {
+      try {
+        const user = JSON.parse(userDataStr);
+        setUserName(user.name);
+      } catch (e) {
+        setUserName(null); // Nếu lỗi thì trả về null
+      }
+    } else {
+      setUserName(null); // Không có hộp thì chưa đăng nhập
     }
-  }, [pathname, userName]);
+  }, [pathname]); // Mỗi khi chuyển trang, Header sẽ tự động quét lại
 
   const handleLogout = () => {
     localStorage.removeItem('user_token');
-    localStorage.removeItem('user_name');
+    localStorage.removeItem('user_data');
+    localStorage.removeItem('user_name'); 
     setUserName(null);
     router.push('/');
   };
@@ -46,14 +55,12 @@ export default function Header() {
           </div>
 
           <div className="flex items-center space-x-6 font-medium text-gray-700">
+            {/* LOGIC ĐỔI CHỮ ĐĂNG NHẬP THÀNH TÀI KHOẢN VÀ HIỂN THỊ TÊN */}
             {userName ? (
-              <div className="flex items-center gap-3">
-                <Link href="/profile" className="flex items-center text-gray-800 hover:text-sakura-500 transition font-bold">
-                  <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                  Tài khoản ({userName})
-                </Link>
-                <button onClick={handleLogout} className="text-xs font-semibold text-red-500 hover:underline">Đăng xuất</button>
-              </div>
+              <Link href="/profile" className="flex items-center text-gray-800 hover:text-sakura-500 transition font-bold">
+                <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                Tài khoản ({userName})
+              </Link>
             ) : (
               <Link href="/login" className="hover:text-sakura-500 transition">Đăng nhập</Link>
             )}

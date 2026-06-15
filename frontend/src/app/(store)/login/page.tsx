@@ -27,7 +27,7 @@ export default function LoginPage() {
       
       // Lưu token của khách hàng vào máy
       localStorage.setItem('user_token', response.data.access_token);
-      localStorage.setItem('user_name', response.data.user.name);
+      localStorage.setItem('user_data', JSON.stringify(response.data.user));
       alert(isLogin ? 'Đăng nhập thành công!' : 'Đăng ký tài khoản thành công!');
       router.push('/'); 
       router.refresh();
@@ -47,7 +47,7 @@ export default function LoginPage() {
       });
 
       localStorage.setItem('user_token', response.data.access_token);
-      localStorage.setItem('user_name', response.data.user.name);
+      localStorage.setItem('user_data', JSON.stringify(response.data.user));
       alert('Đăng nhập bằng Google thành công!');
       router.push('/');
       router.refresh();
