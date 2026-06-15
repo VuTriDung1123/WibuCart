@@ -4,13 +4,16 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
-
+use App\Http\Controllers\StoreController;
 // ==========================================
 // NHÓM 1: KHÔNG CẦN ĐĂNG NHẬP (PUBLIC)
 // ==========================================
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/google-login', [AuthController::class, 'googleLogin']);
+Route::get('/store/home-products', [StoreController::class, 'getHomeProducts']);
+Route::get('/store/category/{slug}', [StoreController::class, 'getCategoryProducts']);
+Route::get('/store/product/{id}', [StoreController::class, 'getProductDetail']);
 
 // ==========================================
 // NHÓM 2: DÀNH CHO ADMIN (PHẢI CÓ TOKEN JWT)
@@ -20,6 +23,14 @@ Route::middleware('auth:api')->prefix('admin')->group(function () {
     Route::get('/products', [AdminController::class, 'products']);
     Route::get('/orders', [AdminController::class, 'orders']);
     Route::get('/users', [AdminController::class, 'users']);
+    Route::get('/create-metadata', [AdminController::class, 'getCreateMetadata']);
+    Route::post('/products', [AdminController::class, 'storeProduct']);
+    Route::post('/category', [AdminController::class, 'storeCategory']);
+    Route::post('/series', [AdminController::class, 'storeSeries']);
+    Route::post('/manufacturer', [AdminController::class, 'storeManufacturer']);
+    Route::delete('/products/{id}', [AdminController::class, 'deleteProduct']); 
+    Route::get('/products/{id}', [AdminController::class, 'getProductForEdit']);
+    Route::put('/products/{id}', [AdminController::class, 'updateProduct']);
 });
 
 // ==========================================

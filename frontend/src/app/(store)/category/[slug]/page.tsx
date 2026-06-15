@@ -1,26 +1,34 @@
+'use client';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import axios from 'axios';
 
-// Định nghĩa thư viện từ khóa để dịch slug sang tên Tiếng Việt
-const categoryNames: Record<string, string> = {
-  'figures': 'Mô Hình',
-  'nendoroid': 'Nendoroid',
-  'trading-cards': 'Pack Card',
-  'blind-box': 'Blind Box',
-  'accessories': 'Phụ Kiện',
-};
+interface Product {
+  id: number;
+  name: string;
+  slug: string;
+  base_price: number;
+  image_url: string | null;
+}
 
-export default async function CategoryPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const resolvedParams = await params;
-  const currentSlug = resolvedParams.slug;
+export default function CategoryPage() {
+  const params = useParams();
+  const currentSlug = params.slug as string;
   
-  // Lấy tên danh mục hiển thị, nếu gõ bậy thì hiển thị "Tất cả sản phẩm"
-  const displayName = categoryNames[currentSlug] || 'Tất cả sản phẩm';
-  
-  const fakeProducts = [1, 2, 3, 4, 5, 6, 7, 8];
+  const [products, setProducts] = useState<Product[]>([]);
+  const [displayName, setDisplayName] = useState('Đang tải...');
+
+  useEffect(() => {
+    axios.get(`http://localhost:8000/api/store/category/${currentSlug}`)
+      .then(res => {
+        setProducts(res.data.products);
+        setDisplayName(res.data.category_name);
+      })
+      .catch(() => {
+        setDisplayName('Tất cả sản phẩm');
+      });
+  }, [currentSlug]);
 
   return (
     <div className="container mx-auto px-4 py-4">
@@ -28,17 +36,16 @@ export default async function CategoryPage({
       <div className="mb-4 rounded-lg bg-white px-4 py-3 shadow-sm border border-sakura-100 text-sm text-gray-500">
         <Link href="/" className="hover:text-sakura-500">Trang chủ</Link>
         <span className="mx-2">/</span>
-        <span className="font-semibold text-sakura-500">{displayName}</span>
+        <span className="font-semibold text-sakura-500 uppercase">{displayName}</span>
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row">
-        {/* SIDEBAR FILTER DÙNG CHUNG */}
+        {/* SIDEBAR FILTER */}
         <aside className="w-full lg:w-1/4">
           <div className="rounded-xl border border-sakura-100 bg-white p-5 shadow-sm">
             <h2 className="mb-4 border-b border-sakura-100 pb-2 text-lg font-bold uppercase text-gray-800">
               Bộ lọc: {displayName}
             </h2>
-            
             <div className="mb-6">
               <h3 className="mb-3 font-semibold text-sakura-500">Thương hiệu</h3>
               <ul className="space-y-2 text-sm text-gray-700 max-h-48 overflow-y-auto">
@@ -50,7 +57,7 @@ export default async function CategoryPage({
           </div>
         </aside>
 
-        {/* LƯỚI SẢN PHẨM */}
+        {/* LƯỚI SẢN PHẨM REAL */}
         <main className="w-full lg:w-3/4">
           <div className="mb-4 rounded-xl bg-white p-4 shadow-sm border border-sakura-100 flex flex-col sm:flex-row justify-between items-center">
             <h1 className="text-xl font-bold uppercase text-gray-800">{displayName}</h1>
@@ -62,19 +69,32 @@ export default async function CategoryPage({
           </div>
 
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-            {fakeProducts.map((item) => (
-              <div key={item} className="group relative flex flex-col rounded-xl border border-gray-100 bg-white p-3 transition hover:border-sakura-400 hover:shadow-lg">
-                <div className="relative mb-3 aspect-square w-full overflow-hidden rounded-lg bg-gray-50">
-                  <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-400">Ảnh SP {item}</div>
-                </div>
-                <h3 className="line-clamp-2 text-sm font-semibold text-gray-800 transition hover:text-sakura-500">
-                  <Link href={`/product/${item}`}>Mô Hình {displayName} #{item}</Link>
-                </h3>
-                <div className="mt-auto pt-3">
-                  <p className="text-lg font-bold text-sakura-500">550.000₫</p>
-                </div>
+            {products.length === 0 ? (
+              <div className="col-span-full py-10 text-center text-gray-500">
+                Chưa có sản phẩm nào trong danh mục này.
               </div>
-            ))}
+            ) : (
+              products.map((item) => (
+                <div key={item.id} className="group relative flex flex-col rounded-xl border border-gray-100 bg-white p-3 transition hover:border-sakura-400 hover:shadow-lg">
+                  <div className="relative mb-3 aspect-square w-full overflow-hidden rounded-lg bg-gray-50 border border-gray-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img 
+                      src={item.image_url || 'https://placehold.co/600x600/fbcfe8/ec4899?text=No+Image'} 
+                      alt={item.name} 
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" 
+                    />
+                  </div>
+                  <h3 className="line-clamp-2 text-sm font-semibold text-gray-800 transition hover:text-sakura-500">
+                    <Link href={`/product/${item.id}`}>{item.name}</Link>
+                  </h3>
+                  <div className="mt-auto pt-3">
+                    <p className="text-lg font-bold text-sakura-500">
+                      {Number(item.base_price).toLocaleString('vi-VN')}₫
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </main>
       </div>
