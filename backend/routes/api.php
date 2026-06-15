@@ -31,6 +31,7 @@ Route::middleware('auth:api')->prefix('admin')->group(function () {
     Route::delete('/products/{id}', [AdminController::class, 'deleteProduct']); 
     Route::get('/products/{id}', [AdminController::class, 'getProductForEdit']);
     Route::put('/products/{id}', [AdminController::class, 'updateProduct']);
+    Route::post('/products/import', [AdminController::class, 'importProducts']);
 });
 
 // ==========================================
