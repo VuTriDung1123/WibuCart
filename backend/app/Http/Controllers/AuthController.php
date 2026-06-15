@@ -92,4 +92,50 @@ class AuthController extends Controller
             'user' => $user
         ]);
     }
+
+    // 4. CẬP NHẬT THÔNG TIN CÁ NHÂN
+    public function updateProfile(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = auth('api')->user();
+        if (!$user) return response()->json(['error' => 'Unauthorized'], 401);
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => 'nullable|string|max:20',
+        ]);
+
+        $user->name = $request->name;
+        $user->phone = $request->phone;
+        $user->save();
+
+        return response()->json([
+            'message' => 'Cập nhật thông tin thành công!', 
+            'user' => $user
+        ]);
+    }
+
+    // 5. ĐỔI MẬT KHẨU
+    public function changePassword(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = auth('api')->user();
+        if (!$user) return response()->json(['error' => 'Unauthorized'], 401);
+
+        $request->validate([
+            'old_password' => 'required',
+            'new_password' => 'required|min:6|confirmed', // Yêu cầu phải có biến new_password_confirmation gửi kèm
+        ]);
+
+        // Kiểm tra xem mật khẩu cũ gõ vào có khớp với DB không
+        if (!Hash::check($request->old_password, $user->password)) {
+            return response()->json(['error' => 'Mật khẩu cũ không chính xác!'], 400);
+        }
+
+        // Mã hóa mật khẩu mới và lưu
+        $user->password = Hash::make($request->new_password);
+        $user->save();
+
+        return response()->json(['message' => 'Đổi mật khẩu thành công!']);
+    }
 }
