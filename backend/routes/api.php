@@ -21,3 +21,11 @@ Route::middleware('auth:api')->prefix('admin')->group(function () {
     Route::get('/orders', [AdminController::class, 'orders']);
     Route::get('/users', [AdminController::class, 'users']);
 });
+
+// ==========================================
+// NHÓM 3: DÀNH CHO USER (PHẢI ĐĂNG NHẬP)
+// ==========================================
+Route::middleware('auth:api')->group(function () {
+    Route::post('/profile/update', [AuthController::class, 'updateProfile']);
+    Route::post('/profile/change-password', [AuthController::class, 'changePassword']);
+});

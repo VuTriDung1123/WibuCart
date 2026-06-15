@@ -28,9 +28,11 @@ export default function LoginPage() {
       // Lưu token của khách hàng vào máy
       localStorage.setItem('user_token', response.data.access_token);
       localStorage.setItem('user_data', JSON.stringify(response.data.user));
+      localStorage.setItem('login_method', 'email');
       alert(isLogin ? 'Đăng nhập thành công!' : 'Đăng ký tài khoản thành công!');
       router.push('/'); 
       router.refresh();
+      
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         setError(err.response?.data?.error || err.response?.data?.message || 'Có lỗi xảy ra!');
@@ -48,6 +50,7 @@ export default function LoginPage() {
 
       localStorage.setItem('user_token', response.data.access_token);
       localStorage.setItem('user_data', JSON.stringify(response.data.user));
+      localStorage.setItem('login_method', 'google');
       alert('Đăng nhập bằng Google thành công!');
       router.push('/');
       router.refresh();
