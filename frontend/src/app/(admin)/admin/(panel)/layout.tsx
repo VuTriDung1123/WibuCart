@@ -20,6 +20,9 @@ export default function AdminDashboardLayout({
           <Link href="/admin/products" className="flex items-center rounded-lg px-4 py-3 font-medium text-gray-600 hover:bg-gray-50 hover:text-sakura-500">
             📦 Quản lý Sản Phẩm
           </Link>
+          <Link href="/admin/taxonomy" className="flex items-center rounded-lg px-4 py-3 font-medium text-gray-600 hover:bg-gray-50 hover:text-sakura-500">
+            🏷️ Quản lý Thuộc Tính
+          </Link>
           <Link href="/admin/orders" className="flex items-center rounded-lg px-4 py-3 font-medium text-gray-600 hover:bg-gray-50 hover:text-sakura-500">
             🛒 Đơn Hàng
           </Link>
