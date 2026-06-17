@@ -14,6 +14,7 @@ Route::post('/google-login', [AuthController::class, 'googleLogin']);
 Route::get('/store/home-products', [StoreController::class, 'getHomeProducts']);
 Route::get('/store/category/{slug}', [StoreController::class, 'getCategoryProducts']);
 Route::get('/store/product/{id}', [StoreController::class, 'getProductDetail']);
+Route::post('/store/contact', [StoreController::class, 'sendContact']);
 
 // ==========================================
 // NHÓM 2: DÀNH CHO ADMIN (PHẢI CÓ TOKEN JWT)
