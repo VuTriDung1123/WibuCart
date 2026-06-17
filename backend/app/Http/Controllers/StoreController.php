@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Support\Facades\Mail;
 class StoreController extends Controller
 {
     // 1. Lấy 6 sản phẩm mới nhất cho Trang Chủ
@@ -191,5 +191,60 @@ class StoreController extends Controller
             'updated_at' => now()
         ]);
         return response()->json(['message' => 'Đã hủy đơn hàng thành công!']);
+    }
+
+    // XỬ LÝ GỬI FORM LIÊN HỆ
+    public function sendContact(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'phone' => 'required|string|max:20',
+            'message' => 'required|string',
+            'recaptcha_token' => 'required|string', // Bắt buộc phải có token từ Google
+        ]);
+
+        try {
+            // 1. GỌI LÊN GOOGLE ĐỂ XÁC MINH CAPTCHA (Bỏ qua SSL rườm rà ở Localhost)
+            $recaptchaResponse = \Illuminate\Support\Facades\Http::withoutVerifying()
+                ->asForm()
+                ->post('https://www.google.com/recaptcha/api/siteverify', [
+                    'secret' => env('RECAPTCHA_SECRET_KEY'),
+                    'response' => $request->recaptcha_token,
+                ]);
+
+            if (!$recaptchaResponse->json('success')) {
+                return response()->json(['error' => 'Xác thực reCAPTCHA thất bại! Vui lòng tích lại vào ô.'], 400);
+            }
+
+            // 2. Gửi mail thông báo cho Admin
+            $adminContent = "Bạn vừa nhận được một liên hệ mới từ khách hàng:\n\n"
+                          . "Họ tên: {$request->name}\n"
+                          . "SĐT: {$request->phone}\n"
+                          . "Email: {$request->email}\n\n"
+                          . "Nội dung lời nhắn:\n{$request->message}";
+                          
+            \Illuminate\Support\Facades\Mail::raw($adminContent, function($msg) use ($request) {
+                $msg->to('vutridung.contact@gmail.com')
+                    ->subject('WibuCart - Liên hệ mới từ ' . $request->name);
+            });
+
+            // 3. Gửi mail tự động cảm ơn Khách hàng
+            $customerContent = "Chào {$request->name},\n\n"
+                             . "Cảm ơn bạn đã liên hệ với WibuCart. Chúng tôi đã nhận được lời nhắn của bạn và sẽ phản hồi qua email hoặc số điện thoại ({$request->phone}) trong thời gian sớm nhất.\n\n"
+                             . "Nội dung bạn đã gửi:\n{$request->message}\n\n"
+                             . "Trân trọng,\nĐội ngũ CSKH WibuCart 🌸";
+
+            \Illuminate\Support\Facades\Mail::raw($customerContent, function($msg) use ($request) {
+                $msg->to($request->email)
+                    ->subject('Cảm ơn bạn đã liên hệ WibuCart');
+            });
+
+            return response()->json(['message' => 'Đã gửi lời nhắn thành công! Vui lòng kiểm tra hộp thư email của bạn.']);
+
+        } catch (\Exception $e) {
+            // Bắt và in ra lỗi cụ thể để dễ sửa nếu Gmail từ chối
+            return response()->json(['error' => 'Lỗi hệ thống: ' . $e->getMessage()], 500);
+        }
     }
 }
