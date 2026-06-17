@@ -4,15 +4,30 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 
+interface OrderHistory {
+  id: number;
+  order_code: string;
+  created_at: string;
+  final_amount: number | string;
+  status: string;
+}
+
 export default function ProfilePage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('info');
+  const [activeTab, setActiveTab] = useState('history');
   const [loginMethod, setLoginMethod] = useState('email');
   const [token, setToken] = useState('');
+  const [orders, setOrders] = useState<OrderHistory[]>([]);
   
   const [user, setUser] = useState({ name: '...', email: '', phone: '', rank_id: 'Dong' });
   const [editForm, setEditForm] = useState({ name: '', phone: '' });
   const [passForm, setPassForm] = useState({ old_password: '', new_password: '', new_password_confirmation: '' });
+
+  const fetchOrders = (currentToken: string) => {
+    axios.get('http://localhost:8000/api/profile/orders', {
+      headers: { Authorization: `Bearer ${currentToken}` }
+    }).then(res => setOrders(res.data)).catch(() => {});
+  };
 
   useEffect(() => {
     const storedToken = localStorage.getItem('user_token');
@@ -23,74 +38,70 @@ export default function ProfilePage() {
       router.push('/login');
       return;
     }
+    
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setToken(storedToken);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoginMethod(method);
 
     try {
       const parsedUser = JSON.parse(userDataStr);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUser({
         name: parsedUser.name || '',
         email: parsedUser.email || '',
         phone: parsedUser.phone || '',
         rank_id: parsedUser.rank_id || 'Dong',
       });
-      // Đổ dữ liệu có sẵn vào form Edit
-      setEditForm({
-        name: parsedUser.name || '',
-        phone: parsedUser.phone || ''
-      });
-    } catch (e) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEditForm({ name: parsedUser.name || '', phone: parsedUser.phone || '' });
+    } catch {
       console.error('Lỗi đọc dữ liệu User');
     }
+
+    fetchOrders(storedToken);
   }, [router]);
 
   const handleLogout = () => {
-    localStorage.clear(); // Xóa sạch sẽ mọi token, data, method
+    localStorage.clear();
     router.push('/');
   };
 
-  // 1. HÀM XỬ LÝ NÚT: CẬP NHẬT THÔNG TIN
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await axios.post('http://localhost:8000/api/profile/update', editForm, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
+      const response = await axios.post('http://localhost:8000/api/profile/update', editForm, { headers: { Authorization: `Bearer ${token}` } });
       localStorage.setItem('user_data', JSON.stringify(response.data.user));
-      
       alert('Cập nhật thông tin thành công!');
       window.location.reload(); 
     } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        alert(error.response?.data?.error || 'Có lỗi xảy ra khi cập nhật!');
-      } else {
-        alert('Có lỗi xảy ra khi cập nhật!');
-      }
+      alert('Có lỗi xảy ra khi cập nhật!');
     }
   };
 
-  // 2. HÀM XỬ LÝ NÚT: ĐỔI MẬT KHẨU
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (passForm.new_password !== passForm.new_password_confirmation) {
-      alert('Mật khẩu nhập lại không khớp!');
-      return;
-    }
+    if (passForm.new_password !== passForm.new_password_confirmation) return alert('Mật khẩu nhập lại không khớp!');
     try {
-      await axios.post('http://localhost:8000/api/profile/change-password', passForm, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      alert('Đổi mật khẩu thành công! Vui lòng dùng mật khẩu mới cho lần đăng nhập sau.');
+      await axios.post('http://localhost:8000/api/profile/change-password', passForm, { headers: { Authorization: `Bearer ${token}` } });
+      alert('Đổi mật khẩu thành công!');
       setPassForm({ old_password: '', new_password: '', new_password_confirmation: '' });
       setActiveTab('info');
     } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        alert(error.response?.data?.error || 'Mật khẩu cũ không đúng hoặc có lỗi!');
-      } else {
-        alert('Có lỗi xảy ra!');
-      }
+      alert('Mật khẩu cũ không đúng hoặc có lỗi!');
+    }
+  };
+
+  const handleCancelOrder = async (orderId: number) => {
+    if (!confirm('Bạn có chắc muốn hủy đơn hàng này không?')) return;
+    try {
+      await axios.put(`http://localhost:8000/api/profile/orders/${orderId}/cancel`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert('Hủy đơn hàng thành công!');
+      fetchOrders(token); 
+    } catch {
+      alert('Không thể hủy đơn hàng này!');
     }
   };
 
@@ -103,12 +114,10 @@ export default function ProfilePage() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
-        
-        {/* ================= CỘT TRÁI ================= */}
         <div className="w-full lg:w-2/3 flex flex-col gap-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-sm border border-sakura-100 hover:border-sakura-300 transition group">
-              <svg className="w-10 h-10 text-sakura-400 mb-2 group-hover:text-sakura-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+            <button onClick={() => setActiveTab('history')} className={`flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-sm border transition group ${activeTab === 'history' ? 'border-sakura-500 bg-sakura-50' : 'border-sakura-100 hover:border-sakura-300'}`}>
+              <svg className={`w-10 h-10 mb-2 transition ${activeTab === 'history' ? 'text-sakura-600' : 'text-sakura-400 group-hover:text-sakura-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
               <span className="font-bold text-gray-700">Lịch sử đơn hàng</span>
             </button>
             <div className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-sm border border-sakura-100">
@@ -118,21 +127,59 @@ export default function ProfilePage() {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-sakura-100 p-6 transition-all min-h-[300px]">
-            
-            {/* TAB 1 */}
+            {/* TAB LỊCH SỬ ĐƠN HÀNG */}
+            {activeTab === 'history' && (
+              <div className="animate-fade-in">
+                <h2 className="text-xl font-bold text-sakura-500 mb-6 border-b border-sakura-100 pb-3">Lịch sử mua hàng</h2>
+                {orders.length === 0 ? (
+                  <div className="text-center py-10">
+                    <p className="text-gray-500 mb-4">Bạn chưa có đơn hàng nào.</p>
+                    <Link href="/" className="px-6 py-2 bg-sakura-100 text-sakura-600 font-bold rounded-lg hover:bg-sakura-200 transition">Đi săn waifu ngay!</Link>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {orders.map(order => (
+                      <div key={order.id} className="border border-gray-100 bg-gray-50 rounded-xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center hover:shadow-md hover:border-sakura-200 transition gap-4">
+                        <div>
+                          <p className="font-bold text-gray-800">Mã đơn: <span className="text-sakura-500">{order.order_code}</span></p>
+                          <p className="text-sm text-gray-500 mt-1">Ngày đặt: {new Date(order.created_at).toLocaleDateString('vi-VN')}</p>
+                          <p className="text-lg text-gray-800 font-black mt-2">{Number(order.final_amount).toLocaleString('vi-VN')}₫</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-2 w-full md:w-auto">
+                          <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${
+                            order.status === 'pending' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
+                            order.status === 'shipping' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                            order.status === 'completed' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-200 text-gray-700 border border-gray-300'
+                          }`}>
+                            {order.status === 'pending' ? 'Chờ xác nhận' :
+                             order.status === 'shipping' ? 'Đang giao hàng' :
+                             order.status === 'completed' ? 'Thành công' : 'Đã hủy'}
+                          </span>
+                          {order.status === 'pending' && (
+                            <button onClick={() => handleCancelOrder(order.id)} className="text-xs font-bold text-red-500 hover:underline mt-2">Hủy đơn hàng</button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB THÔNG TIN */}
             {activeTab === 'info' && (
               <div className="animate-fade-in">
                 <h2 className="text-xl font-bold text-sakura-500 mb-6 border-b border-sakura-100 pb-3">Thông tin tài khoản</h2>
                 <div className="space-y-4 text-gray-700 text-base">
                   <p><strong className="text-gray-900 w-32 inline-block">Họ tên:</strong> {user.name}</p>
                   <p><strong className="text-gray-900 w-32 inline-block">Email:</strong> {user.email}</p>
-                  <p><strong className="text-gray-900 w-32 inline-block">Số điện thoại:</strong> {user.phone ? user.phone : <span className="text-gray-400 italic">Chưa cập nhật</span>}</p>
-                  <p><strong className="text-gray-900 w-32 inline-block">Hạng thẻ:</strong> <span className="uppercase font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded">{user.rank_id}</span></p>
+                  <p><strong className="text-gray-900 w-32 inline-block">Số điện thoại:</strong> {user.phone || <span className="text-gray-400 italic">Chưa cập nhật</span>}</p>
+                  <p><strong className="text-gray-900 w-32 inline-block">Hạng thẻ:</strong> <span className="uppercase font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded border border-orange-200">{user.rank_id}</span></p>
                 </div>
               </div>
             )}
 
-            {/* TAB 2 */}
+            {/* TAB CHỈNH SỬA */}
             {activeTab === 'edit' && (
               <div className="animate-fade-in">
                 <h2 className="text-xl font-bold text-sakura-500 mb-6 border-b border-sakura-100 pb-3">Chỉnh sửa thông tin</h2>
@@ -156,17 +203,14 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* TAB 3 */}
+            {/* TAB ĐỔI MẬT KHẨU */}
             {activeTab === 'password' && (
               <div className="animate-fade-in">
                 <h2 className="text-xl font-bold text-sakura-500 mb-6 border-b border-sakura-100 pb-3">Thay đổi mật khẩu</h2>
-                
-                {/* LƯỚI CHẶN GOOGLE LOGIN */}
                 {loginMethod === 'google' ? (
                   <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-6 flex flex-col items-center justify-center text-center">
-                    <svg className="w-16 h-16 text-yellow-500 mb-4" viewBox="0 0 24 24"><path fill="#FBBC05" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path fill="#4285F4" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" /><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 15.02 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" /></svg>
                     <h3 className="text-lg font-bold text-yellow-800 mb-2">Tài khoản liên kết với Google</h3>
-                    <p className="text-yellow-700">Tài khoản này được đăng nhập thông qua Google OAuth. Bạn không cần và không thể đổi mật khẩu tại hệ thống WibuCart.</p>
+                    <p className="text-yellow-700">Tài khoản này được đăng nhập thông qua Google OAuth. Không thể đổi mật khẩu.</p>
                   </div>
                 ) : (
                   <form className="space-y-4" onSubmit={handleChangePassword}>
@@ -189,34 +233,21 @@ export default function ProfilePage() {
                 )}
               </div>
             )}
-
           </div>
         </div>
 
-        {/* ================= CỘT PHẢI ================= */}
+        {/* CỘT MENU PHẢI */}
         <div className="w-full lg:w-1/3">
           <div className="bg-white rounded-xl shadow-sm border border-sakura-100 overflow-hidden">
             <nav className="flex flex-col">
-              <button onClick={() => setActiveTab('info')} className={`flex items-center px-6 py-4 font-semibold transition border-l-4 border-b ${activeTab === 'info' ? 'border-l-sakura-500 border-b-sakura-100 bg-sakura-50 text-sakura-600' : 'border-l-transparent border-b-gray-100 text-gray-600 hover:bg-gray-50'}`}>
-                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                Thông tin cá nhân
-              </button>
-              <button onClick={() => setActiveTab('edit')} className={`flex items-center px-6 py-4 font-semibold transition border-l-4 border-b ${activeTab === 'edit' ? 'border-l-sakura-500 border-b-sakura-100 bg-sakura-50 text-sakura-600' : 'border-l-transparent border-b-gray-100 text-gray-600 hover:bg-gray-50'}`}>
-                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                Chỉnh sửa thông tin
-              </button>
-              <button onClick={() => setActiveTab('password')} className={`flex items-center px-6 py-4 font-semibold transition border-l-4 border-b ${activeTab === 'password' ? 'border-l-sakura-500 border-b-sakura-100 bg-sakura-50 text-sakura-600' : 'border-l-transparent border-b-gray-100 text-gray-600 hover:bg-gray-50'}`}>
-                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
-                Đổi mật khẩu
-              </button>
-              <button onClick={handleLogout} className="flex items-center px-6 py-4 font-semibold text-red-500 hover:bg-red-50 transition border-l-4 border-transparent text-left">
-                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                Đăng xuất
-              </button>
+              <button onClick={() => setActiveTab('history')} className={`flex items-center px-6 py-4 font-semibold transition border-l-4 border-b ${activeTab === 'history' ? 'border-l-sakura-500 bg-sakura-50 text-sakura-600' : 'border-l-transparent text-gray-600 hover:bg-gray-50'}`}>Lịch sử đơn hàng</button>
+              <button onClick={() => setActiveTab('info')} className={`flex items-center px-6 py-4 font-semibold transition border-l-4 border-b ${activeTab === 'info' ? 'border-l-sakura-500 bg-sakura-50 text-sakura-600' : 'border-l-transparent text-gray-600 hover:bg-gray-50'}`}>Thông tin cá nhân</button>
+              <button onClick={() => setActiveTab('edit')} className={`flex items-center px-6 py-4 font-semibold transition border-l-4 border-b ${activeTab === 'edit' ? 'border-l-sakura-500 bg-sakura-50 text-sakura-600' : 'border-l-transparent text-gray-600 hover:bg-gray-50'}`}>Chỉnh sửa thông tin</button>
+              <button onClick={() => setActiveTab('password')} className={`flex items-center px-6 py-4 font-semibold transition border-l-4 border-b ${activeTab === 'password' ? 'border-l-sakura-500 bg-sakura-50 text-sakura-600' : 'border-l-transparent text-gray-600 hover:bg-gray-50'}`}>Đổi mật khẩu</button>
+              <button onClick={handleLogout} className="flex items-center px-6 py-4 font-semibold text-red-500 hover:bg-red-50 text-left">Đăng xuất</button>
             </nav>
           </div>
         </div>
-
       </div>
     </div>
   );

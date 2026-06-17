@@ -48,11 +48,11 @@ export default function Header() {
 
   const menuItems = [
     { name: 'Trang chủ', path: '/' },
-    { name: 'Mô Hình', path: '/category/figures' },
+    { name: 'Mô Hình', path: '/category/mo-hinh' },
     { name: 'Nendoroid', path: '/category/nendoroid' },
-    { name: 'Pack Card', path: '/category/trading-cards' },
+    { name: 'Pack Card', path: '/category/pack-card' }, // Đã sửa
     { name: 'Blind Box', path: '/category/blind-box' },
-    { name: 'Phụ Kiện', path: '/category/accessories' },
+    { name: 'Phụ Kiện', path: '/category/phu-kien' }, // Đã sửa
     { name: 'Liên Hệ', path: '/contact' },
   ];
 

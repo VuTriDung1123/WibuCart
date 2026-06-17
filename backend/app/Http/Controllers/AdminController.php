@@ -331,4 +331,51 @@ class AdminController extends Controller
             return response()->json(['error' => 'Lỗi tại file CSV: ' . $e->getMessage()], 500);
         }
     }
+
+    // API Cập nhật trạng thái đơn hàng
+    public function updateOrderStatus(Request $request, $id)
+    {
+        $request->validate(['status' => 'required|string']);
+        
+        $order = DB::table('orders')->where('id', $id)->first();
+        if (!$order) return response()->json(['error' => 'Không tìm thấy đơn hàng'], 404);
+
+        DB::table('orders')->where('id', $id)->update([
+            'status' => $request->status,
+            'updated_at' => now()
+        ]);
+
+        return response()->json(['message' => 'Cập nhật trạng thái thành công!']);
+    }
+
+    // Lấy chi tiết 1 đơn hàng (Admin)
+    public function getOrderDetail($id)
+    {
+        // Lấy thông tin chung của đơn
+        $order = DB::table('orders')
+            ->leftJoin('users', 'orders.user_id', '=', 'users.id')
+            ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
+            ->select('orders.*', 'users.email', 'payments.payment_method')
+            ->where('orders.id', $id)
+            ->first();
+
+        if (!$order) return response()->json(['error' => 'Không tìm thấy đơn hàng'], 404);
+
+        // Lấy danh sách các món hàng trong đơn
+        $items = DB::table('order_items')
+            ->join('product_variants', 'order_items.variant_id', '=', 'product_variants.id')
+            ->join('products', 'product_variants.product_id', '=', 'products.id')
+            ->leftJoin('product_images', function($join) {
+                $join->on('products.id', '=', 'product_images.product_id')
+                     ->where('product_images.is_cover', '=', 1);
+            })
+            ->select('order_items.*', 'products.name', 'product_variants.sku_code', 'product_images.image_url')
+            ->where('order_items.order_id', $id)
+            ->get();
+
+        return response()->json([
+            'order' => $order,
+            'items' => $items
+        ]);
+    }
 }

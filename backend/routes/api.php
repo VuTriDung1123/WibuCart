@@ -32,6 +32,8 @@ Route::middleware('auth:api')->prefix('admin')->group(function () {
     Route::get('/products/{id}', [AdminController::class, 'getProductForEdit']);
     Route::put('/products/{id}', [AdminController::class, 'updateProduct']);
     Route::post('/products/import', [AdminController::class, 'importProducts']);
+    Route::put('/orders/{id}/status', [AdminController::class, 'updateOrderStatus']);
+    Route::get('/orders/{id}', [AdminController::class, 'getOrderDetail']);
 });
 
 // ==========================================
@@ -40,4 +42,8 @@ Route::middleware('auth:api')->prefix('admin')->group(function () {
 Route::middleware('auth:api')->group(function () {
     Route::post('/profile/update', [AuthController::class, 'updateProfile']);
     Route::post('/profile/change-password', [AuthController::class, 'changePassword']);
+    Route::get('/orders', [StoreController::class, 'getUserOrders']);
+    Route::get('/profile/orders', [StoreController::class, 'getUserOrders']);
+    Route::post('/store/checkout', [StoreController::class, 'placeOrder']);
+    Route::put('/profile/orders/{id}/cancel', [StoreController::class, 'cancelOrder']);
 });
