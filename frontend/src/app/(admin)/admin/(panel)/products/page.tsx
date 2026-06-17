@@ -64,6 +64,9 @@ export default function AdminProducts() {
           <Link href="/admin/dashboard" className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 shadow-sm transition hover:bg-gray-50 hover:text-sakura-500">
             🔙 Về Tổng Quan
           </Link>
+          <Link href="/admin/products/import" className="rounded-xl border border-green-500 bg-green-50 px-4 py-2.5 text-sm font-bold text-green-600 shadow-sm transition hover:bg-green-500 hover:text-white hover:shadow-md">
+            📥 Nhập File Excel
+          </Link>
           <Link href="/admin/products/create" className="rounded-xl bg-sakura-500 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-sakura-600 hover:shadow-md">
             + Thêm Sản Phẩm Mới
           </Link>

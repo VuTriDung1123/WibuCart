@@ -12,21 +12,36 @@ interface Product {
   image_url: string | null;
 }
 
+// 1. Thêm từ điển để ánh xạ Tên hiển thị chuẩn
+const categoryMap: Record<string, string> = {
+  'mo-hinh': 'Mô Hình',
+  'nendoroid': 'Nendoroid',
+  'pack-card': 'Pack Card',
+  'blind-box': 'Blind Box',
+  'phu-kien': 'Phụ Kiện',
+};
+
 export default function CategoryPage() {
   const params = useParams();
   const currentSlug = params.slug as string;
   
   const [products, setProducts] = useState<Product[]>([]);
-  const [displayName, setDisplayName] = useState('Đang tải...');
+  // Lấy tên từ từ điển, nếu không có thì để Đang tải
+  const [displayName, setDisplayName] = useState(categoryMap[currentSlug] || 'Đang tải...');
 
   useEffect(() => {
     axios.get(`http://localhost:8000/api/store/category/${currentSlug}`)
       .then(res => {
         setProducts(res.data.products);
-        setDisplayName(res.data.category_name);
+        // Ưu tiên tên từ Backend, nếu Backend trả về "Tất cả" thì lấy tên từ Map của Frontend
+        if (res.data.category_name !== 'Tất cả sản phẩm') {
+          setDisplayName(res.data.category_name);
+        } else {
+          setDisplayName(categoryMap[currentSlug] || 'Tất cả sản phẩm');
+        }
       })
       .catch(() => {
-        setDisplayName('Tất cả sản phẩm');
+        setDisplayName(categoryMap[currentSlug] || 'Tất cả sản phẩm');
       });
   }, [currentSlug]);
 

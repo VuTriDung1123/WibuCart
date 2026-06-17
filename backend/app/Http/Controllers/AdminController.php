@@ -211,4 +211,171 @@ class AdminController extends Controller
             return response()->json(['error' => 'Lỗi cập nhật'], 500);
         }
     }
+
+    // 8. NHẬP HÀNG LOẠT BẰNG FILE CSV (EXCEL)
+    public function importProducts(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:5120', // Tối đa 5MB
+        ]);
+
+        $file = $request->file('file');
+        $handle = fopen($file->getPathname(), "r");
+        
+        // Đọc bỏ qua dòng đầu tiên (dòng tiêu đề cột)
+        fgetcsv($handle, 10000, ",");
+
+        DB::beginTransaction(); // Bật chế độ an toàn
+        try {
+            while (($data = fgetcsv($handle, 10000, ",")) !== FALSE) {
+                // Nếu dòng trống hoặc không đủ 8 cột thì bỏ qua
+                if (count($data) < 8 || empty(trim($data[0]))) continue;
+
+                // Cột 0: Tên | Cột 1: Mô tả
+                $name = trim($data[0]);
+                $description = trim($data[1]);
+
+                // Cột 2: Hình ảnh (Cắt mảng nếu có nhiều ảnh bằng dấu phẩy hoặc xuống dòng)
+                $imagesStr = $data[2];
+                $images = preg_split('/[\n,\|]+/', $imagesStr);
+                $images = array_filter(array_map('trim', $images)); // Lọc rác
+
+                // Cột 3: Giá bán (Tự động xóa dấu chấm/phẩy kiểu 350.000 -> 350000)
+                $priceStr = trim($data[3]);
+                $priceStr = str_replace(['.', ','], '', $priceStr);
+                $price = (float)$priceStr;
+
+                // Cột 4: Số lượng
+                $stock = (int)trim($data[4]);
+
+                // Cột 5: Danh mục (TỰ ĐỘNG TẠO NẾU CHƯA CÓ)
+                $catName = trim($data[5]);
+                $catId = DB::table('categories')->where('name', $catName)->value('id');
+                if (!$catId && !empty($catName)) {
+                    $catId = DB::table('categories')->insertGetId([
+                        'name' => $catName, 
+                        'slug' => Str::slug($catName) . '-' . rand(100,999), 
+                        'created_at' => now(), 'updated_at' => now()
+                    ]);
+                }
+
+                // Cột 6: Series (TỰ ĐỘNG TẠO NẾU CHƯA CÓ)
+                $seriesName = trim($data[6]);
+                $seriesId = DB::table('series')->where('name', $seriesName)->value('id');
+                if (!$seriesId && !empty($seriesName)) {
+                    $seriesId = DB::table('series')->insertGetId([
+                        'name' => $seriesName, 
+                        'slug' => Str::slug($seriesName) . '-' . rand(100,999), 
+                        'created_at' => now(), 'updated_at' => now()
+                    ]);
+                }
+
+                // Cột 7: Thương hiệu (TỰ ĐỘNG TẠO NẾU CHƯA CÓ)
+                $brandName = trim($data[7]);
+                $brandId = DB::table('manufacturers')->where('name', $brandName)->value('id');
+                if (!$brandId && !empty($brandName)) {
+                    $brandId = DB::table('manufacturers')->insertGetId([
+                        'name' => $brandName, 
+                        'created_at' => now(), 'updated_at' => now()
+                    ]);
+                }
+
+                // Kiểm tra an toàn trước khi lưu
+                if (!$catId || !$seriesId || !$brandId) {
+                    throw new \Exception("Dữ liệu phân loại bị trống ở sản phẩm: $name");
+                }
+
+                // Bơm vào bảng Products
+                $productId = DB::table('products')->insertGetId([
+                    'name' => $name,
+                    'slug' => Str::slug($name) . '-' . time() . rand(100,999),
+                    'description' => $description,
+                    'category_id' => $catId,
+                    'series_id' => $seriesId,
+                    'manufacturer_id' => $brandId,
+                    'base_price' => $price,
+                    'is_preorder' => 0, // Mặc định hàng nhập lô là có sẵn
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+
+                // Bơm vào bảng Biến thể / Kho
+                DB::table('product_variants')->insert([
+                    'product_id' => $productId,
+                    'sku_code' => 'SKU-' . $productId . '-' . time() . rand(100,999),
+                    'price' => $price,
+                    'stock_quantity' => $stock,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+
+                // Bơm toàn bộ list Hình ảnh
+                $isFirst = true;
+                foreach ($images as $img) {
+                    DB::table('product_images')->insert([
+                        'product_id' => $productId,
+                        'image_url' => $img,
+                        'is_cover' => $isFirst ? 1 : 0, // Ảnh đầu tiên được làm Cover
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                    $isFirst = false;
+                }
+            }
+            fclose($handle);
+            DB::commit();
+            return response()->json(['message' => 'Nhập dữ liệu thành công rực rỡ!']);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Lỗi tại file CSV: ' . $e->getMessage()], 500);
+        }
+    }
+
+    // API Cập nhật trạng thái đơn hàng
+    public function updateOrderStatus(Request $request, $id)
+    {
+        $request->validate(['status' => 'required|string']);
+        
+        $order = DB::table('orders')->where('id', $id)->first();
+        if (!$order) return response()->json(['error' => 'Không tìm thấy đơn hàng'], 404);
+
+        DB::table('orders')->where('id', $id)->update([
+            'status' => $request->status,
+            'updated_at' => now()
+        ]);
+
+        return response()->json(['message' => 'Cập nhật trạng thái thành công!']);
+    }
+
+    // Lấy chi tiết 1 đơn hàng (Admin)
+    public function getOrderDetail($id)
+    {
+        // Lấy thông tin chung của đơn
+        $order = DB::table('orders')
+            ->leftJoin('users', 'orders.user_id', '=', 'users.id')
+            ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
+            ->select('orders.*', 'users.email', 'payments.payment_method')
+            ->where('orders.id', $id)
+            ->first();
+
+        if (!$order) return response()->json(['error' => 'Không tìm thấy đơn hàng'], 404);
+
+        // Lấy danh sách các món hàng trong đơn
+        $items = DB::table('order_items')
+            ->join('product_variants', 'order_items.variant_id', '=', 'product_variants.id')
+            ->join('products', 'product_variants.product_id', '=', 'products.id')
+            ->leftJoin('product_images', function($join) {
+                $join->on('products.id', '=', 'product_images.product_id')
+                     ->where('product_images.is_cover', '=', 1);
+            })
+            ->select('order_items.*', 'products.name', 'product_variants.sku_code', 'product_images.image_url')
+            ->where('order_items.order_id', $id)
+            ->get();
+
+        return response()->json([
+            'order' => $order,
+            'items' => $items
+        ]);
+    }
 }
