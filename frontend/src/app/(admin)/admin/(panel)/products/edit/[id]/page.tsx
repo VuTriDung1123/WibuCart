@@ -19,7 +19,7 @@ export default function EditProductPage() {
   
   const [formData, setFormData] = useState({
     name: '', description: '', base_price: '', stock_quantity: '',
-    category_id: '', series_id: '', manufacturer_id: '', is_preorder: false
+    category_id: '', series_id: '', manufacturer_id: '', is_preorder: false, badge: 'new'
   });
 
   useEffect(() => {
@@ -36,7 +36,7 @@ export default function EditProductPage() {
         setFormData({
           name: p.name, description: p.description || '', base_price: p.base_price, 
           stock_quantity: res.data.stock_quantity, category_id: p.category_id, 
-          series_id: p.series_id, manufacturer_id: p.manufacturer_id, is_preorder: p.is_preorder === 1
+          series_id: p.series_id, manufacturer_id: p.manufacturer_id, is_preorder: p.is_preorder === 1, badge: p.badge || 'new'
         });
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setImageUrls(res.data.image_urls);
@@ -168,6 +168,15 @@ export default function EditProductPage() {
               <select name="manufacturer_id" value={formData.manufacturer_id} onChange={handleChange} required className="w-full rounded-xl border border-gray-300 px-4 py-2.5 bg-gray-50 outline-none">
                 <option value="">-- Chọn Thương Hiệu --</option>
                 {meta.manufacturers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Mục hiển thị Trang chủ *</label>
+              <select name="badge" value={formData.badge} onChange={handleChange} className="w-full rounded-xl border border-gray-300 px-4 py-2.5 bg-gray-50 outline-none focus:bg-white focus:border-sakura-400">
+                <option value="new">Sản Phẩm Mới</option>
+                <option value="hot">Sản Phẩm Bán Chạy</option>
+                <option value="sale">Sản Phẩm Giảm Giá</option>
+                <option value="normal">Sản Phẩm CÒN HÀNG (Ẩn khỏi trang chủ)</option>
               </select>
             </div>
             <label className="flex items-center space-x-3 cursor-pointer pt-3">

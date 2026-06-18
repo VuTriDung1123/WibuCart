@@ -10,17 +10,26 @@ class StoreController extends Controller
     // 1. Lấy 6 sản phẩm mới nhất cho Trang Chủ
     public function getHomeProducts()
     {
-        $products = DB::table('products')
+        $baseQuery = DB::table('products')
             ->leftJoin('product_images', function($join) {
                 $join->on('products.id', '=', 'product_images.product_id')
                      ->where('product_images.is_cover', '=', 1);
             })
-            ->select('products.id', 'products.name', 'products.slug', 'products.base_price', 'product_images.image_url')
-            ->orderBy('products.created_at', 'desc')
-            ->limit(6)
-            ->get();
-            
-        return response()->json($products);
+            ->select('products.id', 'products.name', 'products.slug', 'products.base_price', 'products.is_preorder', 'products.badge', 'product_images.image_url')
+            ->orderBy('products.created_at', 'desc');
+
+        // Phân loại thành 4 nhóm
+        $newProducts = (clone $baseQuery)->where('badge', 'new')->limit(8)->get();
+        $hotProducts = (clone $baseQuery)->where('badge', 'hot')->limit(8)->get();
+        $saleProducts = (clone $baseQuery)->where('badge', 'sale')->limit(8)->get();
+        $preorderProducts = (clone $baseQuery)->where('is_preorder', 1)->limit(8)->get();
+
+        return response()->json([
+            'new_products' => $newProducts,
+            'hot_products' => $hotProducts,
+            'sale_products' => $saleProducts,
+            'preorder_products' => $preorderProducts,
+        ]);
     }
 
     // 2. Lấy sản phẩm theo Danh mục (cho trang Bộ lọc)

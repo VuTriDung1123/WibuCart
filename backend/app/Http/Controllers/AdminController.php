@@ -78,6 +78,7 @@ class AdminController extends Controller
                 'series_id' => $request->series_id,
                 'manufacturer_id' => $request->manufacturer_id,
                 'is_preorder' => $request->is_preorder ? 1 : 0,
+                'badge' => $request->badge ?? 'normal', 
                 'base_price' => $request->base_price,
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -179,6 +180,7 @@ class AdminController extends Controller
                 'series_id' => $request->series_id,
                 'manufacturer_id' => $request->manufacturer_id,
                 'is_preorder' => $request->is_preorder ? 1 : 0,
+                'badge' => $request->badge ?? 'normal',
                 'base_price' => $request->base_price,
                 'updated_at' => now(),
             ]);
