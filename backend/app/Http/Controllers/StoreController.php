@@ -15,7 +15,8 @@ class StoreController extends Controller
                 $join->on('products.id', '=', 'product_images.product_id')
                      ->where('product_images.is_cover', '=', 1);
             })
-            ->select('products.id', 'products.name', 'products.slug', 'products.base_price', 'products.is_preorder', 'products.badge', 'product_images.image_url')
+            ->select('products.id', 'products.name', 'products.slug', 'products.base_price', 'products.is_preorder', 
+            'products.badge', 'product_images.image_url', 'products.discount_percent')
             ->orderBy('products.created_at', 'desc');
 
         // Phân loại thành 4 nhóm

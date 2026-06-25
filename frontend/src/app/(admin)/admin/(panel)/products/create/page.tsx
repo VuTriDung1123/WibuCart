@@ -16,27 +16,19 @@ export default function CreateProductPage() {
   
   const [formData, setFormData] = useState({
     name: '', description: '', base_price: '', stock_quantity: '',
-    category_id: '', series_id: '', manufacturer_id: '', is_preorder: false, badge: 'new'
+    category_id: '', series_id: '', manufacturer_id: '', is_preorder: false, badge: 'new', discount_percent: 0
   });
 
   useEffect(() => {
     const token = localStorage.getItem('admin_token');
-    axios.get('http://localhost:8000/api/admin/create-metadata', {
-      headers: { Authorization: `Bearer ${token}` }
-    }).then(res => setMeta(res.data)).catch(() => {});
+    axios.get('http://localhost:8000/api/admin/create-metadata', { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => setMeta(res.data)).catch(() => {});
   }, []);
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ show: true, message, type });
-    if (type === 'success') {
-      // Đợi 1.5s cho user đọc thông báo rồi mới chuyển trang
-      setTimeout(() => {
-        router.push('/admin/products');
-        router.refresh();
-      }, 1500);
-    } else {
-      setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
-    }
+    if (type === 'success') setTimeout(() => { router.push('/admin/products'); router.refresh(); }, 1500);
+    else setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -47,31 +39,24 @@ export default function CreateProductPage() {
   };
 
   const handleImageChange = (index: number, value: string) => {
-    const newUrls = [...imageUrls];
-    newUrls[index] = value;
-    setImageUrls(newUrls);
+    const newUrls = [...imageUrls]; newUrls[index] = value; setImageUrls(newUrls);
   };
   const addImageInput = () => setImageUrls([...imageUrls, '']);
-  const removeImageInput = (index: number) => {
-    if (imageUrls.length > 1) setImageUrls(imageUrls.filter((_, i) => i !== index));
-  };
+  const removeImageInput = (index: number) => { if (imageUrls.length > 1) setImageUrls(imageUrls.filter((_, i) => i !== index)); };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const token = localStorage.getItem('admin_token');
     const payload = { ...formData, image_urls: imageUrls.filter(url => url.trim() !== '') };
+    // Ràng buộc: Nếu không phải hàng Sale thì reset discount về 0
+    if (payload.badge !== 'sale') payload.discount_percent = 0;
 
     try {
-      await axios.post('http://localhost:8000/api/admin/products', payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.post('http://localhost:8000/api/admin/products', payload, { headers: { Authorization: `Bearer ${token}` } });
       showToast('Đã lưu sản phẩm thành công!', 'success');
     } catch (error: unknown) {
-      const errorMsg = axios.isAxiosError(error)
-        ? error.response?.data?.error || error.response?.data?.message || 'Vui lòng kiểm tra lại thông tin!'
-        : 'Vui lòng kiểm tra lại thông tin!';
-      showToast(errorMsg, 'error');
+      showToast('Vui lòng kiểm tra lại thông tin!', 'error');
     } finally {
       setLoading(false);
     }
@@ -79,11 +64,7 @@ export default function CreateProductPage() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto relative">
-      {toast.show && (
-        <div className={`fixed top-10 left-1/2 -translate-x-1/2 px-8 py-4 rounded-xl text-white font-bold shadow-2xl z-50 animate-fade-in ${toast.type === 'success' ? 'bg-sakura-500' : 'bg-red-500'}`}>
-          {toast.message}
-        </div>
-      )}
+      {toast.show && <div className={`fixed top-10 left-1/2 -translate-x-1/2 px-8 py-4 rounded-xl text-white font-bold shadow-2xl z-50 ${toast.type === 'success' ? 'bg-sakura-500' : 'bg-red-500'}`}>{toast.message}</div>}
 
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-800">✨ Thêm Sản Phẩm Mới</h2>
@@ -95,32 +76,23 @@ export default function CreateProductPage() {
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-5">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">Tên Sản Phẩm *</label>
-              <input type="text" name="name" value={formData.name} onChange={handleChange} required className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-sakura-400 outline-none bg-gray-50 focus:bg-white transition" />
+              <input type="text" name="name" value={formData.name} onChange={handleChange} required className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-sakura-400 outline-none bg-gray-50 focus:bg-white" />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">Mô tả sản phẩm</label>
-              <textarea name="description" value={formData.description} onChange={handleChange} rows={5} className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-sakura-400 outline-none bg-gray-50 focus:bg-white transition"></textarea>
+              <textarea name="description" value={formData.description} onChange={handleChange} rows={5} className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-sakura-400 outline-none bg-gray-50 focus:bg-white"></textarea>
             </div>
 
             <div className="border-t border-gray-100 pt-4">
               <label className="block text-sm font-semibold text-gray-700 mb-2">Thư viện Hình Ảnh (Link Ảnh)</label>
               {imageUrls.map((url, index) => (
                 <div key={index} className="flex gap-2 mb-3 items-start">
-                  <div className="flex-1">
-                    <input type="url" value={url} onChange={(e) => handleImageChange(index, e.target.value)} placeholder="https://..." className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-sakura-400 outline-none bg-gray-50 focus:bg-white transition" />
-                  </div>
-                  {url && (
-                    <div className="w-11 h-11 shrink-0 rounded border border-gray-200 overflow-hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={url} alt="pic" className="w-full h-full object-cover" />
-                    </div>
-                  )}
-                  {imageUrls.length > 1 && (
-                    <button type="button" onClick={() => removeImageInput(index)} className="px-3 py-2.5 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition font-bold">X</button>
-                  )}
+                  <div className="flex-1"><input type="url" value={url} onChange={(e) => handleImageChange(index, e.target.value)} placeholder="https://..." className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-sakura-400 outline-none bg-gray-50 focus:bg-white" /></div>
+                  {url && <div className="w-11 h-11 shrink-0 rounded border border-gray-200 overflow-hidden"><img src={url} alt="pic" className="w-full h-full object-cover" /></div>}
+                  {imageUrls.length > 1 && <button type="button" onClick={() => removeImageInput(index)} className="px-3 py-2.5 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 font-bold">X</button>}
                 </div>
               ))}
-              <button type="button" onClick={addImageInput} className="text-sm font-bold text-sakura-500 hover:text-sakura-600 transition">+ Thêm Ảnh Nữa</button>
+              <button type="button" onClick={addImageInput} className="text-sm font-bold text-sakura-500 hover:text-sakura-600">+ Thêm Ảnh Nữa</button>
             </div>
           </div>
         </div>
@@ -128,7 +100,7 @@ export default function CreateProductPage() {
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Giá bán (VNĐ) *</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Giá gốc (VNĐ) *</label>
               <input type="number" name="base_price" value={formData.base_price} onChange={handleChange} required min="0" className="w-full rounded-xl border border-gray-300 px-4 py-2.5 outline-none bg-gray-50 focus:bg-white" />
             </div>
             <div>
@@ -165,6 +137,15 @@ export default function CreateProductPage() {
                 <option value="normal">Sản Phẩm CÒN HÀNG (Ẩn khỏi trang chủ)</option>
               </select>
             </div>
+            
+            {/* KIỂM TRA ĐÚNG CHỮ "sale" THÌ MỚI HIỆN */}
+            {formData.badge === 'sale' && (
+              <div className="animate-fade-in p-4 bg-red-50 border border-red-200 rounded-xl">
+                <label className="block text-sm font-bold text-red-600 mb-1">Phần trăm giảm giá (%) *</label>
+                <input type="number" name="discount_percent" value={formData.discount_percent} onChange={handleChange} required min="1" max="100" placeholder="Ví dụ: 15" className="w-full rounded-xl border border-red-300 px-4 py-2.5 outline-none bg-white focus:border-red-500 font-bold text-red-600" />
+              </div>
+            )}
+
             <label className="flex items-center space-x-3 cursor-pointer pt-3">
               <input type="checkbox" name="is_preorder" checked={formData.is_preorder} onChange={handleChange} className="w-5 h-5 accent-sakura-500 rounded border-gray-300" />
               <span className="font-semibold text-gray-800">Hàng Đặt Trước (Pre-order)</span>
