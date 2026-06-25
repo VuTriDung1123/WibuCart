@@ -35,6 +35,7 @@ Route::middleware('auth:api')->prefix('admin')->group(function () {
     Route::post('/products/import', [AdminController::class, 'importProducts']);
     Route::put('/orders/{id}/status', [AdminController::class, 'updateOrderStatus']);
     Route::get('/orders/{id}', [AdminController::class, 'getOrderDetail']);
+    Route::post('/taxonomy/import/{type}', [AdminController::class, 'importTaxonomy']);
 });
 
 // ==========================================

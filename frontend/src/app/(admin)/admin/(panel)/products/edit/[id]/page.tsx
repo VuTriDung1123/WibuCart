@@ -19,7 +19,7 @@ export default function EditProductPage() {
   
   const [formData, setFormData] = useState({
     name: '', description: '', base_price: '', stock_quantity: '',
-    category_id: '', series_id: '', manufacturer_id: '', is_preorder: false, badge: 'new'
+    category_id: '', series_id: '', manufacturer_id: '', is_preorder: false, badge: 'new', discount_percent: 0
   });
 
   useEffect(() => {
@@ -36,7 +36,7 @@ export default function EditProductPage() {
         setFormData({
           name: p.name, description: p.description || '', base_price: p.base_price, 
           stock_quantity: res.data.stock_quantity, category_id: p.category_id, 
-          series_id: p.series_id, manufacturer_id: p.manufacturer_id, is_preorder: p.is_preorder === 1, badge: p.badge || 'new'
+          series_id: p.series_id, manufacturer_id: p.manufacturer_id, is_preorder: p.is_preorder === 1, badge: p.badge || 'new', discount_percent: p.discount_percent || 0
         });
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setImageUrls(res.data.image_urls);
@@ -74,9 +74,10 @@ export default function EditProductPage() {
     setLoading(true);
     const token = localStorage.getItem('admin_token');
     const payload = { ...formData, image_urls: imageUrls.filter(url => url.trim() !== '') };
+    // Ràng buộc: Nếu không phải hàng Sale thì reset discount về 0
+    if (payload.badge !== 'sale') payload.discount_percent = 0;
 
     try {
-      // DÙNG PUT thay vì POST để Update
       await axios.put(`http://localhost:8000/api/admin/products/${productId}`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -103,7 +104,6 @@ export default function EditProductPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* === Cột trái giống y hệt file Create === */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-5">
             <div>
@@ -138,11 +138,10 @@ export default function EditProductPage() {
           </div>
         </div>
 
-        {/* === Cột phải giống y hệt file Create === */}
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Giá bán (VNĐ) *</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Giá gốc (VNĐ) *</label>
               <input type="number" name="base_price" value={formData.base_price} onChange={handleChange} required min="0" className="w-full rounded-xl border border-gray-300 px-4 py-2.5 outline-none bg-gray-50 focus:bg-white" />
             </div>
             <div>
@@ -179,6 +178,15 @@ export default function EditProductPage() {
                 <option value="normal">Sản Phẩm CÒN HÀNG (Ẩn khỏi trang chủ)</option>
               </select>
             </div>
+            
+            {/* KIỂM TRA ĐÚNG CHỮ "sale" THÌ MỚI HIỆN */}
+            {formData.badge === 'sale' && (
+              <div className="animate-fade-in p-4 bg-red-50 border border-red-200 rounded-xl">
+                <label className="block text-sm font-bold text-red-600 mb-1">Phần trăm giảm giá (%) *</label>
+                <input type="number" name="discount_percent" value={formData.discount_percent} onChange={handleChange} required min="1" max="100" placeholder="Ví dụ: 15" className="w-full rounded-xl border border-red-300 px-4 py-2.5 outline-none bg-white focus:border-red-500 font-bold text-red-600" />
+              </div>
+            )}
+
             <label className="flex items-center space-x-3 cursor-pointer pt-3">
               <input type="checkbox" name="is_preorder" checked={formData.is_preorder} onChange={handleChange} className="w-5 h-5 accent-sakura-500 rounded border-gray-300" />
               <span className="font-semibold text-gray-800">Hàng Đặt Trước (Pre-order)</span>

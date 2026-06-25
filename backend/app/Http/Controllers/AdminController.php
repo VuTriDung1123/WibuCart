@@ -80,6 +80,7 @@ class AdminController extends Controller
                 'is_preorder' => $request->is_preorder ? 1 : 0,
                 'badge' => $request->badge ?? 'normal', 
                 'base_price' => $request->base_price,
+                'discount_percent' => $request->discount_percent ?? 0,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -181,6 +182,7 @@ class AdminController extends Controller
                 'manufacturer_id' => $request->manufacturer_id,
                 'is_preorder' => $request->is_preorder ? 1 : 0,
                 'badge' => $request->badge ?? 'normal',
+                'discount_percent' => $request->discount_percent ?? 0,
                 'base_price' => $request->base_price,
                 'updated_at' => now(),
             ]);
@@ -218,39 +220,41 @@ class AdminController extends Controller
     public function importProducts(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:csv,txt|max:5120', // Tối đa 5MB
+            'file' => 'required|file|mimes:csv,txt|max:5120',
         ]);
 
         $file = $request->file('file');
         $handle = fopen($file->getPathname(), "r");
-        
-        // Đọc bỏ qua dòng đầu tiên (dòng tiêu đề cột)
-        fgetcsv($handle, 10000, ",");
+        fgetcsv($handle, 10000, ","); // Bỏ qua dòng tiêu đề
 
-        DB::beginTransaction(); // Bật chế độ an toàn
+        DB::beginTransaction();
         try {
             while (($data = fgetcsv($handle, 10000, ",")) !== FALSE) {
-                // Nếu dòng trống hoặc không đủ 8 cột thì bỏ qua
                 if (count($data) < 8 || empty(trim($data[0]))) continue;
 
-                // Cột 0: Tên | Cột 1: Mô tả
                 $name = trim($data[0]);
-                $description = trim($data[1]);
+                $stock = (int)trim($data[4]); // Lôi số lượng lên trên để dùng
 
-                // Cột 2: Hình ảnh (Cắt mảng nếu có nhiều ảnh bằng dấu phẩy hoặc xuống dòng)
+                // BƯỚC CẢI TIẾN: KIỂM TRA TRÙNG TÊN HÀNG
+                $existingProduct = DB::table('products')->where('name', $name)->first();
+                if ($existingProduct) {
+                    // Nếu trùng tên -> Chỉ cộng dồn kho hiện tại và BỎ QUA tạo mới
+                    DB::table('product_variants')
+                        ->where('product_id', $existingProduct->id)
+                        ->increment('stock_quantity', $stock);
+                    continue; // Xong, nhảy sang hàng tiếp theo trong Excel luôn!
+                }
+
+                $description = trim($data[1]);
                 $imagesStr = $data[2];
                 $images = preg_split('/[\n,\|]+/', $imagesStr);
-                $images = array_filter(array_map('trim', $images)); // Lọc rác
+                $images = array_filter(array_map('trim', $images));
 
-                // Cột 3: Giá bán (Tự động xóa dấu chấm/phẩy kiểu 350.000 -> 350000)
                 $priceStr = trim($data[3]);
                 $priceStr = str_replace(['.', ','], '', $priceStr);
                 $price = (float)$priceStr;
 
-                // Cột 4: Số lượng
-                $stock = (int)trim($data[4]);
-
-                // Cột 5: Danh mục (TỰ ĐỘNG TẠO NẾU CHƯA CÓ)
+                // Cột 5, 6, 7: Danh mục (TỰ ĐỘNG TẠO NẾU CHƯA CÓ)
                 $catName = trim($data[5]);
                 $catId = DB::table('categories')->where('name', $catName)->value('id');
                 if (!$catId && !empty($catName)) {
@@ -261,7 +265,6 @@ class AdminController extends Controller
                     ]);
                 }
 
-                // Cột 6: Series (TỰ ĐỘNG TẠO NẾU CHƯA CÓ)
                 $seriesName = trim($data[6]);
                 $seriesId = DB::table('series')->where('name', $seriesName)->value('id');
                 if (!$seriesId && !empty($seriesName)) {
@@ -272,7 +275,6 @@ class AdminController extends Controller
                     ]);
                 }
 
-                // Cột 7: Thương hiệu (TỰ ĐỘNG TẠO NẾU CHƯA CÓ)
                 $brandName = trim($data[7]);
                 $brandId = DB::table('manufacturers')->where('name', $brandName)->value('id');
                 if (!$brandId && !empty($brandName)) {
@@ -282,7 +284,6 @@ class AdminController extends Controller
                     ]);
                 }
 
-                // Kiểm tra an toàn trước khi lưu
                 if (!$catId || !$seriesId || !$brandId) {
                     throw new \Exception("Dữ liệu phân loại bị trống ở sản phẩm: $name");
                 }
@@ -296,7 +297,7 @@ class AdminController extends Controller
                     'series_id' => $seriesId,
                     'manufacturer_id' => $brandId,
                     'base_price' => $price,
-                    'is_preorder' => 0, // Mặc định hàng nhập lô là có sẵn
+                    'is_preorder' => 0, 
                     'created_at' => now(),
                     'updated_at' => now()
                 ]);
@@ -311,13 +312,12 @@ class AdminController extends Controller
                     'updated_at' => now()
                 ]);
 
-                // Bơm toàn bộ list Hình ảnh
                 $isFirst = true;
                 foreach ($images as $img) {
                     DB::table('product_images')->insert([
                         'product_id' => $productId,
                         'image_url' => $img,
-                        'is_cover' => $isFirst ? 1 : 0, // Ảnh đầu tiên được làm Cover
+                        'is_cover' => $isFirst ? 1 : 0,
                         'created_at' => now(),
                         'updated_at' => now()
                     ]);
@@ -328,6 +328,44 @@ class AdminController extends Controller
             DB::commit();
             return response()->json(['message' => 'Nhập dữ liệu thành công rực rỡ!']);
 
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Lỗi tại file CSV: ' . $e->getMessage()], 500);
+        }
+    }
+
+    // API NHẬP HÀNG LOẠT DANH MỤC / SERIES / THƯƠNG HIỆU BẰNG EXCEL
+    public function importTaxonomy(Request $request, $type)
+    {
+        $request->validate(['file' => 'required|file|mimes:csv,txt|max:5120']);
+
+        $file = $request->file('file');
+        $handle = fopen($file->getPathname(), "r");
+        fgetcsv($handle, 10000, ","); // Bỏ qua dòng tiêu đề
+
+        DB::beginTransaction();
+        try {
+            while (($data = fgetcsv($handle, 10000, ",")) !== FALSE) {
+                if (empty($data) || empty(trim($data[0]))) continue;
+                $name = trim($data[0]);
+
+                if ($type === 'category') {
+                    if (!DB::table('categories')->where('name', $name)->exists()) {
+                        DB::table('categories')->insert(['name' => $name, 'slug' => Str::slug($name) . '-' . rand(100,999), 'created_at' => now(), 'updated_at' => now()]);
+                    }
+                } elseif ($type === 'series') {
+                    if (!DB::table('series')->where('name', $name)->exists()) {
+                        DB::table('series')->insert(['name' => $name, 'slug' => Str::slug($name) . '-' . rand(100,999), 'created_at' => now(), 'updated_at' => now()]);
+                    }
+                } elseif ($type === 'manufacturer') {
+                    if (!DB::table('manufacturers')->where('name', $name)->exists()) {
+                        DB::table('manufacturers')->insert(['name' => $name, 'created_at' => now(), 'updated_at' => now()]);
+                    }
+                }
+            }
+            fclose($handle);
+            DB::commit();
+            return response()->json(['message' => "Nhập file thành công cho mục $type!"]);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['error' => 'Lỗi tại file CSV: ' . $e->getMessage()], 500);
